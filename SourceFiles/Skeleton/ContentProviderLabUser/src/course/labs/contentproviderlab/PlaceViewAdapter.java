@@ -16,6 +16,7 @@ import android.graphics.BitmapFactory;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Environment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,6 +32,7 @@ public class PlaceViewAdapter extends CursorAdapter {
 	private static LayoutInflater inflater = null;
 	private Context mContext;
 	private String mBitmapStoragePath;
+	private static String TAG = "Lab-Shashank";
 
 	public PlaceViewAdapter(Context context, Cursor cursor, int flags) {
 		super(context, cursor, flags);
@@ -69,13 +71,12 @@ public class PlaceViewAdapter extends CursorAdapter {
 		// the current set of PlaceRecords. Use the 
 		// getPlaceRecordFromCursor() method to add the
 		// current place to the list
-		
-
-            
-            
-            
-            
-            
+		list.clear();
+		if(newCursor.moveToFirst()){
+			do{
+				list.add(getPlaceRecordFromCursor(newCursor));
+			}while(newCursor.moveToNext() == true);
+		}   
             // Set the NotificationURI for the new cursor
 			newCursor.setNotificationUri(mContext.getContentResolver(),
 					PlaceBadgesContract.CONTENT_URI);
@@ -139,20 +140,23 @@ public class PlaceViewAdapter extends CursorAdapter {
 		String lastPathSegment = Uri.parse(listItem.getFlagUrl())
 				.getLastPathSegment();
 		String filePath = mBitmapStoragePath + "/" + lastPathSegment;
-
+		log("Entered add method");
 		if (storeBitmapToFile(listItem.getFlagBitmap(), filePath)) {
 
 			listItem.setFlagBitmapPath(filePath);
 			list.add(listItem);
-
-			// TODO - Insert new record into the ContentProvider
-
 			
-
-		
-        
-        
-        
+			log("Entered add method1");
+			// TODO - Insert new record into the ContentProvider
+			ContentValues values = new ContentValues();
+			values.put(PlaceBadgesContract.FLAG_BITMAP_PATH, listItem.getFlagBitmapPath());
+			values.put(PlaceBadgesContract.COUNTRY_NAME, listItem.getCountryName());
+			values.put(PlaceBadgesContract.PLACE_NAME, listItem.getPlace());
+			values.put(PlaceBadgesContract.LAT, listItem.getLat());
+			values.put(PlaceBadgesContract.LON, listItem.getLon());
+			
+			mContext.getContentResolver().insert(PlaceBadgesContract.CONTENT_URI, values);
+			mContext.getContentResolver().notifyChange(PlaceBadgesContract.CONTENT_URI, null);        
         }
 
 	}
@@ -166,11 +170,8 @@ public class PlaceViewAdapter extends CursorAdapter {
 		list.clear();
 
 		// TODO - delete all records in the ContentProvider
-
-
-        
-        
-        
+		mContext.getContentResolver().delete(PlaceBadgesContract.CONTENT_URI, null, null);
+		mContext.getContentResolver().notifyChange(PlaceBadgesContract.CONTENT_URI, null);        
 	}
 
 	@Override
@@ -228,9 +229,17 @@ public class PlaceViewAdapter extends CursorAdapter {
 				return false;
 			} catch (IOException e) {
 				return false;
-			}
+			}			
 			return true;
 		}
 		return false;
+	}
+	private static void log(String msg) {
+		try {
+			Thread.sleep(100);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		Log.i(TAG, msg);
 	}
 }

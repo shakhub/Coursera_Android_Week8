@@ -3,7 +3,6 @@ package course.labs.contentproviderlab;
 import java.util.ArrayList;
 
 import android.app.ListActivity;
-import android.app.LoaderManager;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Context;
 import android.content.CursorLoader;
@@ -19,7 +18,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 import course.labs.contentproviderlab.provider.PlaceBadgesContract;
 
@@ -54,11 +53,14 @@ public class PlaceViewActivity extends ListActivity implements
 
         // TODO - Set up the app's user interface
         // This class is a ListActivity, so it has its own ListView
- 
+		
 
         // TODO - add a footerView to the ListView
         // You can use footer_view.xml to define the footer
-
+		TextView footerView = (TextView) getLayoutInflater().inflate(R.layout.footer_view, null);
+		getListView().setFooterDividersEnabled(true);
+		getListView().addFooterView(footerView);
+		
 
         // TODO - When the footerView's onClick() method is called, it must issue the
         // following log call
@@ -78,19 +80,37 @@ public class PlaceViewActivity extends ListActivity implements
         // solution is to disable the footerView until you have a location.
         // Issue the following log call:
         // log("Location data is not available");
-
-
 		
-		
+		footerView.setOnClickListener(new OnClickListener(){
+			@Override
+			public void onClick(View V){
+				log("Entered footerView.OnClickListener.onClick()");
+				
+				if(mLastLocationReading == null){
+					log("Location data is not available");
+					return;
+				}
+				if(mCursorAdapter.intersects(mLastLocationReading)){
+					log("You already have this location badge");
+					Toast.makeText(getApplicationContext(), "You already have this location badge",Toast.LENGTH_LONG).show();
+					return;
+				}
+				
+				PlaceDownloaderTask pd = new PlaceDownloaderTask(PlaceViewActivity.this);
+				pd.execute(mLastLocationReading);
+				log("Starting Place Download");
+			}
+		});		
 		
 		// TODO - Create and set empty PlaceViewAdapter
         // ListView's adapter should be a PlaceViewAdapter called mCursorAdapter
-
-		
-		
-		
+		Cursor cursor = getContentResolver().query(PlaceBadgesContract.CONTENT_URI, null, null, null, null);
+		mCursorAdapter = new PlaceViewAdapter(this, cursor, 0);
+		setListAdapter (mCursorAdapter);
 		// TODO - Initialize a CursorLoader
-
+		getLoaderManager().initLoader(0, null, this);
+		
+			
         
 	}
 
@@ -103,13 +123,20 @@ public class PlaceViewActivity extends ListActivity implements
 
 		// TODO - Check NETWORK_PROVIDER for an existing location reading.
 		// Only keep this last reading if it is fresh - less than 5 minutes old.
-
+		mLocationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+		Location newLocation = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+		
+		if(newLocation != null && ( age(mLastLocationReading) > FIVE_MINS)){
+			 mLastLocationReading = newLocation;
+		}
 
 		
 		
 		
 		// TODO - Register to receive location updates from NETWORK_PROVIDER
-
+		mLocationManager.requestLocationUpdates(
+				LocationManager.NETWORK_PROVIDER, mMinTime, mMinDistance,
+				this);
 		
 		
 		
@@ -121,7 +148,7 @@ public class PlaceViewActivity extends ListActivity implements
 		mMockLocationProvider.shutdown();
 
 		// TODO - Unregister for location updates
-
+		mLocationManager.removeUpdates(this);
 		
 		
 		super.onPause();
@@ -145,7 +172,10 @@ public class PlaceViewActivity extends ListActivity implements
 		// the current location
 		// 3) If the current location is newer than the last locations, keep the
 		// current location.
+		if(mLastLocationReading == null || age(mLastLocationReading) > age(currentLocation)){
+			mLastLocationReading = currentLocation;
 
+		}
 
 	
 	
@@ -174,14 +204,14 @@ public class PlaceViewActivity extends ListActivity implements
 		// TODO - Create a new CursorLoader and return it
 		
         
-        return null;
+		return new CursorLoader(getApplicationContext(),PlaceBadgesContract.CONTENT_URI,null,null,null,null);
 	}
 
 	@Override
 	public void onLoadFinished(Loader<Cursor> newLoader, Cursor newCursor) {
 
 		// TODO - Swap in the newCursor
-
+		mCursorAdapter.swapCursor(newCursor);
 	
     }
 
@@ -189,7 +219,7 @@ public class PlaceViewActivity extends ListActivity implements
 	public void onLoaderReset(Loader<Cursor> newLoader) {
 
 		// TODO - Swap in a null Cursor
-
+		mCursorAdapter.swapCursor(null);
 	
     }
 
